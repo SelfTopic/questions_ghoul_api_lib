@@ -1,0 +1,4 @@
+.ghoul_quiz/
+.vscode/
+__pycache__/
+*.pyc
