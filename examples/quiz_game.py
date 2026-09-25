@@ -21,7 +21,18 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
-from ghoul_quiz import GhoulQuizAPI, TokenManager
+from ghoul_quiz import (
+    DEFAULT_BASE_URL,
+    AuthenticationRequiredError,
+    GhoulQuizAPI,
+    GhoulQuizError,
+    RateLimitError,
+    SessionExpiredError,
+    TokenManager,
+)
+
+# Повторять запрос при этих ошибках бессмысленно: нужен вход заново или ожидание лимита.
+FATAL_ERRORS = (AuthenticationRequiredError, SessionExpiredError, RateLimitError)
 
 
 @dataclass
@@ -96,71 +107,32 @@ class GameSession:
 class QuizGame:
     """Главный класс игры в викторину."""
 
-    def __init__(self, api_url: str = "http://chestor.site:3300"):
+    def __init__(self, api_url: str = DEFAULT_BASE_URL):
         """Инициализировать игру."""
         self.api = GhoulQuizAPI(base_url=api_url)
         self.session = GameSession()
         self.running = False
 
     async def authenticate(self, email: Optional[str] = None) -> bool:
-        """Аутентификация пользователя."""
+        """Войти по email: сохранённая сессия или код из письма.
+
+        Гостевой токен не подходит: гостям сервер не отдаёт правильные ответы.
+        """
         print("\n" + "=" * 70)
-        print("🔐 АУТЕНТИФИКАЦИЯ")
+        print("🔐 ВХОД")
         print("=" * 70)
 
-        if email:
-            print(f"\n💾 Проверяю сохраненный токен для {email}...")
-            if self.api.load_saved_token(email):
-                print(f"✅ Токен загружен для {email}")
-                return True
-            else:
-                print(f"❌ Токен не найден для {email}")
+        email = email or input("\nВведите email: ").strip()
+        if self.api.load_saved_token(email):
+            print(f"✅ Сессия {email} загружена")
+            return True
 
-        print("\n1️⃣  Использовать сохраненный токен")
-        print("2️⃣  Зарегистрироваться")
-        print("3️⃣  Использовать временный токен (гость)")
-
-        choice = input("\nВыберите (1/2/3): ").strip()
-
-        if choice == "1":
-            email = input("Введите email: ").strip()
-            if self.api.load_saved_token(email):
-                print("✅ Токен загружен")
-                return True
-            else:
-                print("❌ Токен не найден")
-                return False
-
-        elif choice == "2":
-            print("\n📝 Регистрация...")
-            email = input("Введите email: ").strip()
-
-            try:
-                await self.api.register(email)
-                print(f"✅ Ссылка для верификации отправлена на {email}")
-
-                code = input("Введите код верификации: ").strip()
-                response = await self.api.verify_code(email, code)
-
-                self.api.set_token(response.token)
-                self.api.save_token(email)
-                print("✅ Регистрация успешна!")
-                return True
-            except Exception as e:
-                print(f"❌ Ошибка: {e}")
-                return False
-
-        elif choice == "3":
-            try:
-                token = await self.api.get_temporary_token()
-                self.api.set_token(token.access_token)
-                print("✅ Временный токен получен (ограничения: 10 вопросов/час)")
-                return True
-            except Exception as e:
-                print(f"❌ Ошибка: {e}")
-                return False
-
-        return False
+        try:
+            await self.api.register_interactive(email)
+            return True
+        except GhoulQuizError as e:
+            print(f"❌ Ошибка: {e}")
+            return False
 
     def print_welcome(self):
         """Показать приветственное сообщение."""
@@ -233,6 +205,8 @@ class QuizGame:
                     try:
                         answer_data = await self.api.get_answer(question_data.id)
                         break
+                    except FATAL_ERRORS:
+                        raise
                     except Exception:
                         answer_retry += 1
                         if answer_retry < max_retries:
@@ -274,6 +248,9 @@ class QuizGame:
 
                 return True
 
+            except FATAL_ERRORS as e:
+                print(f"\n❌ {e}")
+                return False
             except Exception as e:
                 retry_count += 1
                 if retry_count < max_retries:

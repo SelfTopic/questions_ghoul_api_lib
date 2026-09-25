@@ -20,7 +20,18 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Dict, List, Optional
 
-from ghoul_quiz import GhoulQuizAPI, TokenManager
+from ghoul_quiz import (
+    DEFAULT_BASE_URL,
+    AuthenticationRequiredError,
+    GhoulQuizAPI,
+    GhoulQuizError,
+    RateLimitError,
+    SessionExpiredError,
+    TokenManager,
+)
+
+# Повторять запрос при этих ошибках бессмысленно: нужен вход заново или ожидание лимита.
+FATAL_ERRORS = (AuthenticationRequiredError, SessionExpiredError, RateLimitError)
 
 
 class GameMode(Enum):
@@ -115,7 +126,7 @@ class AdvancedQuizGame:
     # Таблица рекордов
     LEADERBOARD_FILE = "quiz_leaderboard.json"
 
-    def __init__(self, api_url: str = "http://chestor.site:3300"):
+    def __init__(self, api_url: str = DEFAULT_BASE_URL):
         self.api = GhoulQuizAPI(base_url=api_url)
         self.session = AdvancedGameSession()
         self.leaderboard = self._load_leaderboard()
@@ -148,7 +159,7 @@ class AdvancedQuizGame:
         if leaderboard_file.exists():
             try:
                 return json.loads(leaderboard_file.read_text())
-            except:
+            except (OSError, ValueError):
                 return []
         return []
 
@@ -273,6 +284,8 @@ class AdvancedQuizGame:
                     try:
                         answer_data = await self.api.get_answer(question_data.id)
                         break
+                    except FATAL_ERRORS:
+                        raise
                     except Exception:
                         answer_retry += 1
                         if answer_retry < max_retries:
@@ -293,6 +306,9 @@ class AdvancedQuizGame:
                     print(f"❌ Ответ: {answer_data.answer}")
 
                 return True
+            except FATAL_ERRORS as e:
+                print(f"\n❌ {e}")
+                return False
             except Exception as e:
                 retry_count += 1
                 if retry_count < max_retries:
@@ -326,6 +342,8 @@ class AdvancedQuizGame:
                     try:
                         answer_data = await self.api.get_answer(question_data.id)
                         break
+                    except FATAL_ERRORS:
+                        raise
                     except Exception:
                         answer_retry += 1
                         if answer_retry < max_retries:
@@ -348,6 +366,9 @@ class AdvancedQuizGame:
                     print(f"⚠️  Осталось жизней: {self.session.lives}")
 
                 return self.session.lives > 0
+            except FATAL_ERRORS as e:
+                print(f"\n❌ {e}")
+                return False
             except Exception as e:
                 retry_count += 1
                 if retry_count < max_retries:
@@ -381,6 +402,8 @@ class AdvancedQuizGame:
                     try:
                         answer_data = await self.api.get_answer(question_data.id)
                         break
+                    except FATAL_ERRORS:
+                        raise
                     except Exception:
                         answer_retry += 1
                         if answer_retry < max_retries:
@@ -411,6 +434,9 @@ class AdvancedQuizGame:
                     print(f"❌ Ответ: {answer_data.answer}")
                     print("⚠️  Мультипликатор сброшен!")
                     return correct_streak >= 10  # Минимум 10 правильных для челленджа
+            except FATAL_ERRORS as e:
+                print(f"\n❌ {e}")
+                return False
             except Exception as e:
                 retry_count += 1
                 if retry_count < max_retries:
@@ -422,6 +448,22 @@ class AdvancedQuizGame:
                     return True
 
         return True
+
+    async def authenticate(self) -> bool:
+        """Войти по email: сохранённая сессия или код из письма.
+
+        Гостевой токен не подходит: гостям сервер не отдаёт правильные ответы.
+        """
+        email = input("\nВведите email для входа: ").strip()
+        if self.api.load_saved_token(email):
+            print(f"✅ Сессия {email} загружена")
+            return True
+        try:
+            await self.api.register_interactive(email)
+            return True
+        except GhoulQuizError as e:
+            print(f"❌ Ошибка входа: {e}")
+            return False
 
     async def close(self):
         """Закрыть соединение."""
@@ -447,6 +489,9 @@ async def main():
         """)
 
         choice = input("Выберите режим (1-5): ").strip()
+
+        if choice in ("1", "2", "3") and not await game.authenticate():
+            return
 
         if choice == "1":
             await game.play_time_attack(60)

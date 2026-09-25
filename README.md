@@ -1,207 +1,35 @@
-# 🎮 Ghoul Quiz - Асинхронная библиотека и интерактивные игры
+# 🎮 Ghoul Quiz: асинхронная библиотека и консольные викторины
 
-[![Python 3.8+](https://img.shields.io/badge/Python-3.8%2B-blue?style=flat-square&logo=python)](https://www.python.org/)
-[![aiohttp](https://img.shields.io/badge/aiohttp-3.8%2B-blue?style=flat-square)](https://docs.aiohttp.org/)
-[![License MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+[![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-blue?style=flat-square&logo=python)](https://www.python.org/)
+[![aiohttp](https://img.shields.io/badge/aiohttp-3.9%2B-blue?style=flat-square)](https://docs.aiohttp.org/)
+[![License MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](#-лицензия)
 
-Полнофункциональная асинхронная библиотека для работы с **Ghoul Quiz API** (Questions Ghoul) с встроенными интерактивными викторинами из Tokyo Ghoul.
+Асинхронный Python-клиент для **Questions Ghoul API**: базы вопросов викторины по аниме Tokyo Ghoul. API доступен по адресу `https://chestor.site/api`.
 
-> 📌 **Новое!** Две готовых викторины с разными режимами игры - классическая и расширенная с челленджами!
+В репозитории:
 
----
-
-## 🎯 Что это?
-
-**Ghoul Quiz** — это:
-
-1. **📚 Асинхронная библиотека** для работы с API вопросов из Tokyo Ghoul
-   - Полная типизация (type hints)
-   - Обработка ошибок
-   - Автоматическое управление токенами
-
-2. **🎮 Две готовые игры**
-   - Классическая викторина (интерактивный и автоматический режимы)
-   - Расширенная викторина с 3 режимами: на время, выживание, челлендж
-
-3. **🔐 Полное управление аутентификацией**
-   - Временные токены (для гостей)
-   - JWT токены (через регистрацию)
-   - Автоматическое сохранение и загрузка
+1. **Библиотека `ghoul_quiz`**: вход по коду из письма, пара access/refresh токенов с автоматическим обновлением, гостевой доступ, сохранение сессий, типизированные модели и исключения.
+2. **Две консольные викторины** в [examples/](examples/): классическая и расширенная (на время, выживание, челлендж, таблица рекордов).
+3. **Консольная утилита** `ghoul-quiz-register` для входа и управления сохранёнными сессиями.
 
 ---
 
-## ⚡ Быстрый старт (30 секунд)
-
-### 1. Установка
+## ⚡ Быстрый старт
 
 ```bash
 git clone https://github.com/chestor-cz/ghoul_quiz_lib.git
 cd ghoul_quiz_lib
 pip install -e .
+
+python examples/quiz_game.py            # классическая викторина
+python examples/quiz_game_advanced.py   # расширенная
 ```
 
-### 2. Запуск игры
-
-```bash
-# Классическая викторина
-python examples/quiz_game.py
-
-# Расширенная викторина (с режимами)
-python examples/quiz_game_advanced.py
-```
-
-### 3. Выбрать режим и играть!
-
-```
-🎮 ВЫБОР РЕЖИМА
-1️⃣  Интерактивный режим (сколько угодно вопросов)
-2️⃣  Автоматический режим (5 вопросов)
-
-Выберите режим (1/2): 1
-```
-
----
-
-## 🎮 Игры
-
-### Классическая викторина
-**Файл:** `examples/quiz_game.py`
-
-```bash
-python examples/quiz_game.py
-```
-
-**Функции:**
-- ✅ Два режима: интерактивный и автоматический
-- ✅ Система подсчета баллов в реальном времени
-- ✅ Статистика и история вопросов (сохраняется в JSON)
-- ✅ Аутентификация (сохраненные токены, регистрация или гостевой доступ)
-
-**Результаты:**
-```
-📊 Результаты:
-   • Всего вопросов: 10
-   • ✅ Правильных: 8
-   • ❌ Неправильных: 2
-   • 🎯 Точность: 80.0%
-   
-💾 Статистика сохранена в: ~/.ghoul_quiz/quiz_session_*.json
-```
-
-### Расширенная викторина (Профессиональная версия)
-**Файл:** `examples/quiz_game_advanced.py`
-
-```bash
-python examples/quiz_game_advanced.py
-```
-
-**4 игровых режима:**
-
-| Режим | Описание | Где найти очки |
-|-------|---------|----------------|
-| **⏱️ На время** | 60 секунд, максимум вопросов | Базовые + бонус за скорость |
-| **❤️ Выживание** | 3 жизни, потеря при ошибке | По 100 за ответ + бонус за жизни |
-| **🚀 Челлендж** | Система мультипликатора (1.0x - 5.0x) | Очки × максимальный мультипликатор |
-| **🏆 Рекорды** | Таблица топ-100 результатов | Просмотр и сравнение с другими |
-
-**Пример режима "Челлендж":**
-```
-🚀 РЕЖИМ ЧЕЛЛЕНДЖ: Растущая сложность!
-🎯 Мультипликатор: 1.0x
-🔥 Серия: 0
-
-❓ Вопрос #1: Как звали главного антагониста?
-Ваш ответ: Аогири
-
-✅ Правильно! Мультипликатор растет: 1.1x
-
-❓ Вопрос #2: ...
-```
-
-**Таблица рекордов:**
-```
-🏆 ТАБЛИЦА РЕКОРДОВ
-Место  Игрок          Очки      Режим       Точность
-🥇    Chestor         8500      challenge   95.2%
-🥈    Player2         7200      time_attack 85.0%
-🥉    Player3         6800      survival    72.5%
-```
+При первом запуске игра спросит email и пришлёт на него 6-значный код. После входа сессия сохраняется, и повторно вводить код не нужно, пока вы заходите хотя бы раз в 30 дней.
 
 ---
 
 ## 📚 Библиотека
-
-Используйте библиотеку в своих проектах:
-
-### Простейший пример
-
-```python
-import asyncio
-from ghoul_quiz import GhoulQuizAPI
-
-async def main():
-    api = GhoulQuizAPI()
-    try:
-        # Получить временный токен
-        token = await api.get_temporary_token()
-        api.set_token(token.access_token)
-        
-        # Получить вопрос
-        question = await api.get_random_question()
-        print(f"❓ {question.question}")
-        
-        # Получить ответ
-        answer = await api.get_answer(question.id)
-        print(f"✅ {answer.answer}")
-    finally:
-        await api.close()
-
-asyncio.run(main())
-```
-
-### Использование сохраненного токена
-
-```python
-import asyncio
-from ghoul_quiz import GhoulQuizAPI
-
-async def main():
-    api = GhoulQuizAPI()
-    try:
-        # Загрузить сохраненный токен
-        if api.load_saved_token("user@example.com"):
-            print("✅ Токен загружен")
-            
-            # Использовать API
-            question = await api.get_random_question()
-            print(f"Вопрос: {question.question}")
-        else:
-            print("❌ Токен не найден")
-    finally:
-        await api.close()
-
-asyncio.run(main())
-```
-
-### Регистрация и получение JWT
-
-```python
-import asyncio
-from ghoul_quiz import GhoulQuizAPI
-
-async def register():
-    api = GhoulQuizAPI()
-    try:
-        # Одна строка для интерактивной регистрации!
-        token = await api.register_interactive("user@example.com")
-        print(f"✅ Регистрация успешна! JWT: {token}")
-    finally:
-        await api.close()
-
-asyncio.run(register())
-```
-
-### Context Manager
 
 ```python
 import asyncio
@@ -209,369 +37,212 @@ from ghoul_quiz import GhoulQuizAPI
 
 async def main():
     async with GhoulQuizAPI() as api:
-        # API автоматически закроется
+        # Сохранённая сессия или вход по коду из письма
+        if not api.load_saved_token("user@example.com"):
+            await api.register_interactive("user@example.com")
+
         question = await api.get_random_question()
-        print(question.question)
+        print(question.question, question.answer_options)
+
+        answer = await api.get_answer(question_id=question.id)
+        print(answer.answer)
 
 asyncio.run(main())
 ```
 
----
+### Доступ
 
-## 🔐 Аутентификация
+| | Гость | Пользователь |
+|---|---|---|
+| Как получить | `await api.get_temporary_token()` | вход по коду из письма |
+| Заголовок | `X-Temporary-Token` | `Authorization: Bearer` |
+| Срок жизни | 1 час | access 7 дней, refresh 30 дней с продлением |
+| Вопросы | 10 в час | 1000 в час |
+| Ответы | ❌ | ✅ |
 
-### Три способа получить доступ:
+Библиотека сама выбирает нужный заголовок. Если есть и пользовательская сессия, и гостевой токен, используется сессия: сервер отклоняет запросы, в которых переданы оба.
 
-#### 1. Временный токен (гостевой доступ)
-```python
-token = await api.get_temporary_token()  # Быстро, без регистрации
-api.set_token(token.access_token)        # 10 вопросов в час
-```
+### Вход по email
 
-#### 2. Регистрация и JWT
-```python
-# Интерактивная регистрация
-token = await api.register_interactive("your@email.com")
-# Вводите код из письма → получаете JWT
-# 1000 вопросов в час!
-```
-
-#### 3. Использовать сохраненный токен
-```python
-api.load_saved_token("your@email.com")  # Из ~/.ghoul_quiz/tokens.json
-# Автоматически устанавливает токен
-```
-
----
-
-## 🗂️ Структура проекта
-
-```
-ghoul_quiz_lib/
-├── ghoul_quiz/                         # Основной пакет
-│   ├── __init__.py                     # Экспорты
-│   ├── client.py                       # Low-level HTTP клиент
-│   ├── session.py                      # High-level API wrapper
-│   ├── models.py                       # Data модели
-│   ├── register.py                     # Token менеджер
-│   └── types.py                        # Type hints
-│
-├── examples/                           # Примеры и игры
-│   ├── quiz_game.py                    # 🎮 Классическая викторина
-│   ├── quiz_game_advanced.py           # 🚀 Расширенная викторина
-│   ├── QUIZ_GAMES_GUIDE.md            # 📖 Гайд по викторинам
-│   ├── demo.py                         # 📝 Базовый пример
-│   ├── advanced_examples.py            # 🎯 Продвинутые примеры
-│   ├── how_to_use_saved_token.py      # 💾 7 паттернов токенов
-│   ├── token_storage_complete_guide.py# ⚙️ Конфигурация
-│   └── readme.md                       # 📚 Гайд примеров
-│
-├── tests/                              # Тесты
-│   ├── test_client.py
-│   └── test_api.py
-│
-├── README.md                           # 📖 Этот файл
-├── QUIZ_QUICKSTART.md                 # ⚡ Быстрая справка по викторинам
-├── QUICKSTART.md                      # 📚 Быстрая справка
-├── REGISTRATION_GUIDE.md              # 📋 Гайд регистрации
-├── LIBRARY_README.md                  # 📘 Полная документация
-├── LIBRARY_STATUS.md                  # ✅ Статус реализации
-├── pyproject.toml                      # Poetry конфиг
-├── setup.py                            # Setup конфиг
-└── requirements-dev.txt                # Dev зависимости
-```
-
----
-
-## 📖 Документация
-
-| Документ | Для кого | Читать |
-|----------|---------|--------|
-| **QUIZ_QUICKSTART.md** | Хочу быстро начать игру | ⚡ 5 минут |
-| **examples/QUIZ_GAMES_GUIDE.md** | Хочу разобраться в викторинах | 📖 15 минут |
-| **QUICKSTART.md** | Хочу использовать библиотеку | 📚 10 минут |
-| **LIBRARY_README.md** | Хочу все детали API | 📘 30 минут |
-| **REGISTRATION_GUIDE.md** | Хочу понять регистрацию | 📋 5 минут |
-| **LIBRARY_STATUS.md** | Хочу узнать статус | ✅ 2 минуты |
-
----
-
-## 🎯 Примеры по сценариям
-
-### "Я хочу просто поиграть"
-```bash
-python examples/quiz_game.py
-```
-
-### "Я хочу соревноваться в режимах"
-```bash
-python examples/quiz_game_advanced.py
-```
-
-### "Я хочу использовать в своем проекте"
-```python
-from ghoul_quiz import GhoulQuizAPI
-
-async def my_function():
-    api = GhoulQuizAPI()
-    # Ваш код...
-```
-
-### "Я хочу понять как это работает"
-```bash
-python examples/demo.py                          # Базовый пример
-python examples/how_to_use_saved_token.py       # 7 паттернов
-python examples/patterns.py                      # Реальные паттерны
-```
-
----
-
-## 🔑 Основные API методы
-
-### Аутентификация
+Регистрация и вход устроены одинаково: пользователь создаётся при первой успешной проверке кода.
 
 ```python
-# Получить временный токен
-token = await api.get_temporary_token()
-api.set_token(token.access_token)
+# Интерактивно: код вводится в консоли, сессия сохраняется
+tokens = await api.register_interactive("user@example.com")
 
-# Регистрировать пользователя
-await api.register(email="user@example.com")
+# Вручную
+await api.register("user@example.com")                   # отправить код (живёт 5 минут)
+tokens = await api.verify_code("user@example.com", "572286", save_token=True)
+```
 
-# Верифицировать код и получить JWT
-response = await api.verify_code(
-    email="user@example.com", 
-    code="123456"
+`verify_code` возвращает `TokenPair` с полями `access_token`, `refresh_token`, `expires_at` и `refresh_expires_at`.
+
+### Автоматическое обновление токенов
+
+Access-токен живёт 7 дней. Когда он истекает, `GhoulQuizAPI` сам обменивает refresh-токен на новую пару. Это происходит заранее, за минуту до истечения, или после ответа `401`, и запрос повторяется.
+
+Refresh-токен **одноразовый**. Если предъявить уже использованный токен, сервер отзовёт всю сессию. Поэтому библиотека:
+
+- никогда не обновляет токены параллельно: одновременные запросы ждут одного обновления;
+- сразу записывает новую пару в хранилище, если сессия была загружена оттуда или сохранена туда;
+- перед обновлением перечитывает хранилище: если другой процесс уже обновил сессию, берётся его пара.
+
+Если сервер отклонил refresh-токен (срок истёк, был выход или токен использован повторно), выбрасывается `SessionExpiredError`, а сессия удаляется из памяти и хранилища. После этого нужно войти по email заново.
+
+```python
+await api.refresh()      # обновить явно
+GhoulQuizAPI(auto_refresh=False)   # отключить автообновление
+```
+
+### Выход
+
+```python
+await api.logout()       # завершить эту сессию на сервере и удалить её локально
+await api.logout_all()   # завершить все сессии пользователя на всех устройствах
+```
+
+### Методы
+
+| Метод | Эндпоинт | Доступ |
+|---|---|---|
+| `health()` → `bool` | `GET /health` | все |
+| `get_temporary_token()` → `GuestToken` | `GET /access_token` | все |
+| `register(email)` → `RegistrationResponse` | `POST /register` | все |
+| `verify_code(email, code, save_token=False)` → `TokenPair` | `POST /verify-code` | все |
+| `register_interactive(email)` / `login_interactive(email)` → `TokenPair` | оба выше | все |
+| `refresh()` → `TokenPair` | `POST /auth/refresh` | пользователь |
+| `logout()` | `POST /auth/logout` | пользователь |
+| `logout_all()` | `POST /auth/logout-all` | пользователь |
+| `get_random_question()` → `Question` | `GET /quiz/random` | гость, пользователь |
+| `get_answer(question_id=... \| question_text=...)` → `Answer` | `POST /quiz/answer` | пользователь |
+
+При поиске по `question_text` не учитываются регистр, «ё/е», пунктуация и пробелы.
+
+Состояние клиента: `api.auth_type` (`"user"`, `"guest"` или `None`), `api.tokens`, `api.guest_token`, `api.email`. Токен, полученный в другом месте, можно передать через `set_tokens(TokenPair(...))` или `set_token(str)`. Строка в формате UUID считается гостевым токеном, любая другая строка считается access-токеном без refresh.
+
+### Параметры клиента
+
+```python
+GhoulQuizAPI(
+    base_url="https://chestor.site/api",  # корень API вместе с /api
+    api_key=None,                         # стартовый токен
+    session=None,                         # свой aiohttp.ClientSession
+    timeout=30.0,
+    verify_ssl=True,                      # False только для локального сервера с самоподписанным сертификатом
+    auto_refresh=True,
 )
-api.set_token(response.token)
-
-# Интерактивная регистрация (одна строка)
-await api.register_interactive("user@example.com")
 ```
 
-### Викторина
+Для локального сервера: `GhoulQuizAPI(base_url="http://localhost:3300/api")`.
+
+### Исключения
+
+```
+GhoulQuizError
+├── NetworkError                  сервер недоступен, таймаут
+├── AuthenticationRequiredError   нет подходящего токена (например, гость запрашивает ответ)
+└── APIError                      .status, .message, .details, .headers
+    ├── ValidationError           400, .details содержит ошибки по полям
+    ├── UnauthorizedError         401
+    │   └── SessionExpiredError   refresh-токен отклонён, нужен вход по email
+    ├── NotFoundError             404
+    ├── RateLimitError            429, .retry_after в секундах
+    └── ServiceUnavailableError   503 (почта, БД или Redis)
+```
 
 ```python
-# Получить случайный вопрос
-question = await api.get_random_question()
-print(question.question)
-
-# Получить ответ
-answer = await api.get_answer(question.id)
-print(answer.answer)
-```
-
-### Управление токенами
-
-```python
-# Сохранить токен
-api.save_token("user@example.com")
-
-# Загрузить токен
-api.load_saved_token("user@example.com")
-
-# Показать где хранятся токены
-token_file = TokenManager.get_token_file()
-print(f"Токены: {token_file}")
-```
-
----
-
-## ⚙️ Конфигурация
-
-### Место сохранения токенов
-
-Автоматически выбирается в зависимости от режима:
-
-```
-Разработка: ./.ghoul_quiz/tokens.json          (в папке проекта)
-Продакшн:   ~/.ghoul_quiz/tokens.json          (в домашней папке)
-Кастом:     export GHOUL_QUIZ_TOKEN_PATH=...   (переменная окружения)
-```
-
-### Переопределить API URL
-
-```python
-api = GhoulQuizAPI(base_url="http://localhost:3300")
-```
-
-### Переопределить путь токенов
-
-```bash
-export GHOUL_QUIZ_TOKEN_PATH="/custom/path/tokens.json"
-python examples/quiz_game.py
-```
-
----
-
-## 🧪 Тестирование
-
-```bash
-# Все тесты
-pytest tests/ -v
-
-# С покрытием
-pytest --cov=ghoul_quiz tests/
-
-# Только unit тесты
-pytest tests/test_client.py -v
-```
-
----
-
-## 📊 Обработка ошибок
-
-```python
-from ghoul_quiz import (
-    GhoulQuizAPI,
-    ValidationError,
-    UnauthorizedError,
-    NotFoundError,
-    RateLimitError,
-    APIError,
-)
+from ghoul_quiz import RateLimitError, SessionExpiredError
 
 try:
     question = await api.get_random_question()
-except RateLimitError:
-    print("⚠️  Превышен лимит запросов")
-except UnauthorizedError:
-    print("❌ Токен неверный или истек")
-except APIError as e:
-    print(f"❌ Ошибка API: {e}")
+except RateLimitError as e:
+    print(f"Лимит, повторите через {e.retry_after} с")
+except SessionExpiredError:
+    await api.register_interactive(email)
 ```
 
----
+### Хранилище сессий
 
-## 🎯 Лимиты запросов
+`TokenManager` хранит сессии в JSON-файле по ключу email и адресу сервера. Файл создаётся с правами `0600`, потому что в нём лежат refresh-токены.
 
-| Метод | Временный токен | JWT токен |
-|-------|-----------------|-----------|
-| Регистрация | 10/час | N/A |
-| Верификация | 3/час | N/A |
-| Получить вопрос | 10/час | 1000/час |
-| Получить ответ | 0 | 1000/час |
+Где лежит файл, определяется так:
+1. путь из переменной `GHOUL_QUIZ_TOKEN_PATH`, если она задана;
+2. `./.ghoul_quiz/tokens.json`, если в текущей папке есть `pyproject.toml` или `setup.py` (режим разработки);
+3. иначе `~/.ghoul_quiz/tokens.json`.
 
----
-
-## 📈 Статистика
-
-Все результаты сохраняются автоматически:
-
-```json
-{
-  "total_questions": 15,
-  "correct_answers": 12,
-  "accuracy": 80.0,
-  "duration_seconds": 300,
-  "questions": [
-    {
-      "id": "q1",
-      "text": "Вопрос",
-      "answer": "ответ",
-      "user_answer": "ответ",
-      "is_correct": true
-    }
-  ]
-}
-```
-
-Файл сохраняется в: `~/.ghoul_quiz/quiz_session_YYYYMMDD_HHMMSS.json`
+Сессия, сохранённая для другого `base_url`, не загружается. Записи версии 0.1 без refresh-токена читаются, но их access-токен выдан старым сервером, поэтому нужен повторный вход.
 
 ---
 
-## 🐛 Решение проблем
+## 🧰 Консольная утилита
 
-### "ModuleNotFoundError: No module named 'ghoul_quiz'"
 ```bash
-pip install -e .
+ghoul-quiz-register                       # меню
+ghoul-quiz-register --email user@example.com
+ghoul-quiz-register --api-url http://localhost:3300/api
 ```
 
-### "ConnectionError: Failed to connect"
-- Убедитесь, что API запущен: `http://chestor.site:3300`
-- Проверьте интернет соединение
-
-### "SSL: CERTIFICATE_VERIFY_FAILED"
-- API использует self-signed сертификат
-- Библиотека автоматически их игнорирует
-
-### Ошибка "Server disconnected"
-- Добавлена автоматическая retry логика (3 попытки)
-- Проверьте стабильность соединения с API
+Что умеет: вход и регистрация, гостевой токен, проверка, просмотр и завершение сохранённых сессий (на этом устройстве или на всех), проверка статуса сервера.
 
 ---
 
-## 💡 Советы
+## 🎮 Игры
 
-### 💡 Совет 1: Используйте Context Manager
-```python
-async with GhoulQuizAPI() as api:
-    # API автоматически закроется
-    pass
-```
+| Файл | Режимы |
+|---|---|
+| [examples/quiz_game.py](examples/quiz_game.py) | интерактивный (без ограничения) и автоматический (5 вопросов); статистика сохраняется в JSON |
+| [examples/quiz_game_advanced.py](examples/quiz_game_advanced.py) | на время (60 с), выживание (3 жизни), челлендж (множитель до 5x), таблица рекордов |
 
-### 💡 Совет 2: Сохраняйте токены
-```python
-api.save_token("user@example.com")
-# Позже просто загрузите
-api.load_saved_token("user@example.com")
-```
+Для игр нужен вход по email: гостям сервер не отдаёт правильные ответы. Подробнее в [examples/QUIZ_GAMES_GUIDE.md](examples/QUIZ_GAMES_GUIDE.md).
 
-### 💡 Совет 3: Обрабатывайте ошибки
-```python
-try:
-    # ваш код
-except RateLimitError:
-    await asyncio.sleep(60)  # Подождите перед повтором
-```
+---
 
-### 💡 Совет 4: Проверьте примеры
+## 🎯 Лимиты сервера
+
+| Что | Лимит |
+|---|---|
+| Любой запрос к `/api` | 120 в минуту с IP |
+| Гостевой токен | 1 в час с IP |
+| Отправка кода | 10 в час с IP, 5 в час на email, не чаще раза в минуту |
+| Проверка кода | 30 в час с IP, 5 попыток на один код |
+| Refresh и logout | 60 в час с IP |
+| Вопросы и ответы | 10 в час для гостя, 1000 в час для пользователя |
+
+---
+
+## 🧪 Разработка
+
 ```bash
-python examples/how_to_use_saved_token.py      # 7 паттернов
-python examples/token_storage_complete_guide.py # Конфигурация
+pip install -e '.[dev]'
+pytest
 ```
 
----
+Тесты поднимают внутри процесса фейковый сервер на aiohttp. Он воспроизводит правила настоящего: ротацию refresh-токенов, отзыв сессии при повторном использовании, конфликт двух заголовков, лимиты. Сеть для тестов не нужна.
 
-## 📞 Поддержка
+## 🗂️ Структура
 
-- 📖 **Полная документация**: [LIBRARY_README.md](LIBRARY_README.md)
-- ⚡ **Быстрая справка**: [QUICKSTART.md](QUICKSTART.md)
-- 🎮 **Гайд викторин**: [examples/QUIZ_GAMES_GUIDE.md](examples/QUIZ_GAMES_GUIDE.md)
-- 🎯 **Примеры**: [examples/](examples/)
+```
+ghoul_quiz/
+├── session.py    GhoulQuizAPI: методы API и обновление токенов
+├── client.py     GhoulAPIClient: HTTP-транспорт, ответы с ошибками превращаются в исключения
+├── models.py     GuestToken, TokenPair, Question, Answer
+├── errors.py     исключения
+├── storage.py    TokenManager: файл сессий
+└── register.py   консольная утилита ghoul-quiz-register
+examples/         игры и примеры
+tests/            тесты с фейковым сервером
+```
 
----
+## 🔄 Переход с 0.1
+
+- Адрес по умолчанию теперь `https://chestor.site/api`, и `base_url` включает `/api`. Проверка SSL включена.
+- `verify_code()` возвращает `TokenPair`: вместо `.token` используйте `.access_token`. `register_interactive()` тоже возвращает `TokenPair`, а не строку.
+- `get_temporary_token()` сразу включает гостевой токен, вызывать `set_token()` не нужно.
+- Без токена выбрасывается `AuthenticationRequiredError`, а не `ValueError`.
+- Код подтверждения состоит из 6 цифр.
+- Требуется Python 3.9+.
+- Старые имена моделей (`TemporaryTokenResponse`, `VerifyCodeResponse`, `QuestionOption`, `AnswerResponse`) остались как псевдонимы.
 
 ## 📄 Лицензия
 
-MIT License - смотрите [LICENSE](LICENSE) для деталей
-
----
-
-## 👨‍💻 Автор
-
-**CheStor** - [selftopic@gmail.com](mailto:selftopic@gmail.com)
-
----
-
-## 🎊 Готовы начать?
-
-```bash
-# Установить
-pip install -e .
-
-# Играть
-python examples/quiz_game.py
-
-# Или расширенную версию
-python examples/quiz_game_advanced.py
-```
-
-**Удачи в викторине! 🚀✨**
-
----
-
-**Версия**: 0.1.0  
-**Python**: >= 3.8  
-**Статус**: ✅ Production Ready  
-**Последнее обновление**: февраль 2026
+MIT. Автор: CheStor.

@@ -1,295 +1,84 @@
 # 🚀 Быстрый старт
 
-## Самый быстрый способ (3 строки)
+```bash
+pip install -e .
+```
+
+## Вход и первый вопрос
 
 ```python
 import asyncio
 from ghoul_quiz import GhoulQuizAPI
 
-async def main():
-    api = GhoulQuizAPI()
-    
-    # 1️⃣ Регистрация (интерактивная - введет код в консоль)
-    token = await api.register_interactive("your@email.com")
-    
-    # 2️⃣ Получить вопрос
-    question = await api.get_random_question()
-    print(f"Вопрос: {question.question}")
-    
-    # 3️⃣ Получить ответ
-    answer = await api.get_answer(question_id=question.id)
-    print(f"Ответ: {answer.answer}")
-    
-    await api.close()
-
-asyncio.run(main())
-```
-
-При вызове `register_interactive()` библиотека:
-1. Отправит код на вашу почту
-2. **Попросит ввести код в консоль** (как в telethon/pyrogram)
-3. Получит JWT токен
-4. Сохранит его локально
-5. Установит его и вернет
-
-## Использование сохраненного токена
-
-Во второй раз просто загрузите сохраненный токен:
-
-```python
-import asyncio
-from ghoul_quiz import GhoulQuizAPI
-
-async def main():
-    api = GhoulQuizAPI()
-    
-    # Загрузить сохраненный токен
-    if api.load_saved_token("your@email.com"):
-        question = await api.get_random_question()
-        print(f"Вопрос: {question.question}")
-    
-    await api.close()
-
-asyncio.run(main())
-```
-
-## Временный токен (для гостей)
-
-Если не хотите регистрироваться:
-
-```python
-async def main():
-    api = GhoulQuizAPI()
-    
-    # Получить временный токен (10 вопросов/час)
-    temp_token = await api.get_temporary_token()
-    api.set_token(temp_token.access_token)
-    
-    # Можно получать вопросы
-    question = await api.get_random_question()
-    print(f"Вопрос: {question.question}")
-    
-    # Но ответы требуют JWT!
-    # answer = await api.get_answer(...)  # ❌ Не сработает
-    
-    await api.close()
-```
-
-## Разница между токенами
-
-| | Временный | JWT |
-|---|----------|-----|
-| **Тип** | UUID | JSON Web Token |
-| **Регистрация** | Не требуется | Требуется |
-| **Получение** | `get_temporary_token()` | `register_interactive()` |
-| **Вопросы** | ✓ (10/час) | ✓ (1000/час) |
-| **Ответы** | ❌ | ✓ |
-| **Длительность** | 1 час | Долгосрочный |
-| **Сохранение** | Нет | Да (~/.ghoul_quiz/tokens.json) |
-
-## API Методы
-
-### Регистрация
-
-```python
-# Интерактивная (рекомендуется)
-token = await api.register_interactive(
-    email="user@example.com",
-    save_token=True  # Сохранить после
-)
-
-# Или вручную:
-await api.register(email="user@example.com")  # Отправить код
-token = await api.verify_code(email="user@example.com", code="123456")
-api.set_token(token.token)
-api.save_token("user@example.com")
-```
-
-### Получение вопросов
-
-```python
-# Требуется токен (временный или JWT)
-question = await api.get_random_question()
-# {
-#   "id": 123,
-#   "question": "Вопрос?",
-#   "answer_options": ["Ответ1", "Ответ2", ...],
-#   "answer_group": "name"
-# }
-```
-
-### Получение ответов
-
-```python
-# Требуется JWT токен!
-answer = await api.get_answer(question_id=question.id)
-# или
-answer = await api.get_answer(question="Вопрос?")
-# {
-#   "id": 123,
-#   "question": "Вопрос?",
-#   "answer": "Правильный ответ",
-#   "answer_group": "name"
-# }
-```
-
-### Управление токенами
-
-```python
-# Загрузить сохраненный
-api.load_saved_token("user@email.com")
-
-# Сохранить текущий
-api.save_token("user@email.com")
-
-# Установить вручную
-api.set_token(some_token)
-
-# Получить текущий
-current = api.get_token()
-```
-
-## Примеры
-
-### Пример 1: Получить 5 вопросов с ответами
-
-```python
-import asyncio
-from ghoul_quiz import GhoulQuizAPI
-
-async def main():
-    api = GhoulQuizAPI()
-    
-    # Регистрация (один раз)
-    await api.register_interactive("myemail@example.com")
-    
-    # Получить 5 вопросов
-    for i in range(5):
-        q = await api.get_random_question()
-        a = await api.get_answer(question_id=q.id)
-        print(f"{i+1}. {q.question}")
-        print(f"   Ответ: {a.answer}\n")
-    
-    await api.close()
-
-asyncio.run(main())
-```
-
-### Пример 2: Использовать сохраненный токен
-
-```python
-import asyncio
-from ghoul_quiz import GhoulQuizAPI
-
-async def main():
-    api = GhoulQuizAPI()
-    
-    # Загрузить сохраненный (если есть)
-    if not api.load_saved_token("myemail@example.com"):
-        print("Нет сохраненного токена, регистрируемся...")
-        await api.register_interactive("myemail@example.com")
-    
-    # Использовать
-    question = await api.get_random_question()
-    print(f"Вопрос: {question.question}")
-    
-    await api.close()
-
-asyncio.run(main())
-```
-
-### Пример 3: Context manager
-
-```python
-import asyncio
-from ghoul_quiz import GhoulQuizAPI
+EMAIL = "user@example.com"
 
 async def main():
     async with GhoulQuizAPI() as api:
-        # Регистрация
-        await api.register_interactive("myemail@example.com")
-        
-        # Использовать
+        # Первый запуск: код придёт на почту. Дальше сессия загружается из файла.
+        if not api.load_saved_token(EMAIL):
+            await api.register_interactive(EMAIL)
+
         question = await api.get_random_question()
-        print(f"Вопрос: {question.question}")
-        
-        # Автоматически закроется при выходе
+        print(question.question, question.answer_options)
+
+        answer = await api.get_answer(question_id=question.id)
+        print("Ответ:", answer.answer)
 
 asyncio.run(main())
 ```
 
-## Где сохраняются токены?
+Сессия действует 30 дней с момента последнего использования. Токены обновляются автоматически, а новая пара сразу записывается в файл.
 
-Все токены сохраняются в:
-```
-~/.ghoul_quiz/tokens.json
-```
+## Гостевой доступ
 
-Формат:
-```json
-{
-  "user@example.com": {
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "api_url": "http://chestor.site:3300"
-  }
-}
+```python
+async with GhoulQuizAPI() as api:
+    await api.get_temporary_token()           # 1 раз в час с IP, живёт 1 час
+    question = await api.get_random_question()  # 10 вопросов в час
+    # api.get_answer(...) → AuthenticationRequiredError: ответы только для пользователей
 ```
 
-## Интерактивный скрипт
+## Вход без консоли
 
-Если не хотите писать код, используйте встроенный скрипт:
+```python
+await api.register(EMAIL)                              # отправить код
+tokens = await api.verify_code(EMAIL, "572286", save_token=True)
+print(tokens.access_token, tokens.refresh_token)
+```
+
+## Выход
+
+```python
+await api.logout()       # эта сессия
+await api.logout_all()   # все устройства
+```
+
+## Ошибки
+
+```python
+from ghoul_quiz import GhoulQuizError, RateLimitError, SessionExpiredError
+
+try:
+    question = await api.get_random_question()
+except RateLimitError as e:
+    print(f"Лимит, повторите через {e.retry_after} с")
+except SessionExpiredError:
+    print("Сессия закончилась, войдите по email заново")
+except GhoulQuizError as e:
+    print(f"Ошибка: {e}")
+```
+
+## Консольная утилита
 
 ```bash
-# Интерактивное меню
-ghoul-quiz-register
-
-# Или прямая регистрация
-ghoul-quiz-register --email myemail@example.com
+ghoul-quiz-register                                # меню: вход, гость, сессии, выход, статус
+ghoul-quiz-register --email user@example.com       # сразу войти
 ```
 
-## Обработка ошибок
+## Локальный сервер
 
 ```python
-from ghoul_quiz import (
-    GhoulQuizAPI,
-    ValidationError,
-    UnauthorizedError,
-    RateLimitError,
-    NotFoundError,
-    APIError
-)
-
-async def main():
-    api = GhoulQuizAPI()
-    
-    try:
-        question = await api.get_random_question()
-    except UnauthorizedError:
-        print("❌ Токен невалиден или истек")
-    except RateLimitError:
-        print("❌ Превышен лимит запросов")
-    except NotFoundError:
-        print("❌ Вопрос не найден")
-    except ValidationError as e:
-        print(f"❌ Ошибка валидации: {e.details}")
-    except APIError as e:
-        print(f"❌ Ошибка API: {e.message}")
-    finally:
-        await api.close()
-
-asyncio.run(main())
+GhoulQuizAPI(base_url="http://localhost:3300/api")
 ```
 
-## Готово!
-
-Теперь вы готовы использовать Ghoul Quiz API! 🎉
-
-Начните с:
-```python
-python quickstart.py
-```
-
-Или:
-```python
-ghoul-quiz-register
-```
+Подробная документация: [README.md](README.md).

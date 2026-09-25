@@ -1,553 +1,246 @@
 #!/usr/bin/env python3
 """
-Interactive registration and JWT token retrieval for Ghoul Quiz API.
+Interactive console tool for Ghoul Quiz API sessions.
 
-This module provides:
-- User registration with email verification
-- JWT and temporary token management
-- Token storage and retrieval
-- Interactive console interface
+- Log in / sign up by email and save the session
+- Get a guest token
+- Check, list and log out saved sessions
 
 Usage:
-    from ghoul_quiz.register import main
-    asyncio.run(main())
-
-    Or from command line:
-    python -m ghoul_quiz.register [--api-url http://chestor.site:3300]
+    ghoul-quiz-register [--api-url https://chestor.site/api] [--email user@example.com]
+    python -m ghoul_quiz.register
 """
 
+import argparse
 import asyncio
-import json
 import sys
-from pathlib import Path
-from typing import Optional
+from datetime import datetime
+from typing import List, Optional
 
-from ghoul_quiz.client import RateLimitError, ValidationError
+from ghoul_quiz.errors import GhoulQuizError
 from ghoul_quiz.session import GhoulQuizAPI
+from ghoul_quiz.storage import DEFAULT_BASE_URL, TokenManager, normalize_url
+
+# Kept for code that imported TokenManager from here in version 0.1.
+__all__ = ["TokenManager", "main"]
 
 
-class TokenManager:
-    """Manage storing and retrieving JWT tokens locally.
-
-    Token storage location is determined automatically:
-
-    1. **Environment Variable** (highest priority)
-       - Set GHOUL_QUIZ_TOKEN_PATH to override location
-       - Example: export GHOUL_QUIZ_TOKEN_PATH=/custom/path/tokens.json
-
-    2. **Development Mode** (when in project directory)
-       - If setup.py or pyproject.toml exists in current directory
-       - Location: ./.ghoul_quiz/tokens.json
-       - Useful for development without polluting home directory
-
-    3. **Production Mode** (default)
-       - Used when not in project directory
-       - Location: ~/.ghoul_quiz/tokens.json
-       - Standard location for user application data
-
-    Examples:
-        >>> # Auto-detect storage location
-        >>> token_file = TokenManager.get_token_file()
-        >>>
-        >>> # Save a token
-        >>> TokenManager.save_token("user@example.com", "eyJ...", "http://api.url")
-        >>>
-        >>> # Load all tokens
-        >>> tokens = TokenManager.load_all_tokens()
-        >>>
-        >>> # Load specific token
-        >>> token = TokenManager.load_token("user@example.com")
-        >>>
-        >>> # Delete token
-        >>> TokenManager.delete_token("user@example.com")
-    """
-
-    # Default locations for different environments:
-    # - Production: ~/.ghoul_quiz/tokens.json (home directory)
-    # - Development: ./.ghoul_quiz/tokens.json (current directory)
-    #
-    # Can be overridden via environment variable:
-    # export GHOUL_QUIZ_TOKEN_PATH=/path/to/tokens.json
-
-    @classmethod
-    def _get_token_file(cls) -> Path:
-        """Get token file path (configurable via env var)."""
-        import os
-
-        # Check for environment variable first
-        custom_path = os.environ.get("GHOUL_QUIZ_TOKEN_PATH")
-        if custom_path:
-            return Path(custom_path)
-
-        # Check if we're in development (has setup.py or pyproject.toml nearby)
-        current_dir = Path.cwd()
-        if (current_dir / "setup.py").exists() or (current_dir / "pyproject.toml").exists():
-            # Development mode - use local .ghoul_quiz/
-            return current_dir / ".ghoul_quiz" / "tokens.json"
-
-        # Production mode - use home directory
-        return Path.home() / ".ghoul_quiz" / "tokens.json"
-
-    @property
-    def TOKEN_FILE(self) -> Path:
-        """Get token file path."""
-        return self._get_token_file()
-
-    # For backward compatibility, keep class-level access
-    @classmethod
-    def get_token_file(cls) -> Path:
-        """Get token file path."""
-        return cls._get_token_file()
-
-    @classmethod
-    def _ensure_dir(cls):
-        """Create token directory if it doesn't exist."""
-        token_file = cls.get_token_file()
-        token_file.parent.mkdir(parents=True, exist_ok=True)
-
-    @classmethod
-    def save_token(cls, email: str, token: str, api_url: str = "http://chestor.site:3300"):
-        """Save JWT token with metadata."""
-        cls._ensure_dir()
-
-        # Load existing tokens
-        tokens = cls.load_all_tokens()
-
-        # Save new token
-        tokens[email] = {
-            "token": token,
-            "api_url": api_url,
-        }
-
-        token_file = cls.get_token_file()
-        with open(token_file, "w") as f:
-            json.dump(tokens, f, indent=2)
-
-        print(f"✅ Токен сохранен для {email}")
-
-    @classmethod
-    def load_token(cls, email: str) -> Optional[str]:
-        """Load JWT token for email."""
-        tokens = cls.load_all_tokens()
-        if email in tokens:
-            return tokens[email].get("token")
-        return None
-
-    @classmethod
-    def load_all_tokens(cls) -> dict:
-        """Load all saved tokens."""
-        cls._ensure_dir()
-        token_file = cls.get_token_file()
-        if token_file.exists():
-            with open(token_file, "r") as f:
-                return json.load(f)
-        return {}
-
-    @classmethod
-    def delete_token(cls, email: str):
-        """Delete token for email."""
-        tokens = cls.load_all_tokens()
-        if email in tokens:
-            del tokens[email]
-            token_file = cls.get_token_file()
-            with open(token_file, "w") as f:
-                json.dump(tokens, f, indent=2)
-            print(f"✅ Токен удален для {email}")
-
-    @classmethod
-    def get_token_api_url(cls, email: str) -> Optional[str]:
-        """Get API URL for stored token."""
-        tokens = cls.load_all_tokens()
-        if email in tokens:
-            return tokens[email].get("api_url")
-        return None
-
-
-def print_header(title: str):
-    """Print formatted header."""
+def print_header(title: str) -> None:
     print("\n" + "=" * 60)
     print(f"  {title}")
     print("=" * 60)
 
 
-def get_email() -> str:
-    """Get email from user with validation."""
+def format_ts(ts: Optional[float]) -> str:
+    if not ts:
+        return "неизвестно"
+    moment = datetime.fromtimestamp(ts)
+    suffix = " (истёк)" if moment < datetime.now() else ""
+    return moment.strftime("%Y-%m-%d %H:%M") + suffix
+
+
+def ask_email() -> str:
     while True:
-        email = input("\n📧 Введите ваш email: ").strip()
-
-        if not email:
-            print("❌ Email не может быть пустым")
-            continue
-
-        if "@" not in email or "." not in email:
-            print("❌ Некорректный формат email")
-            continue
-
-        return email
+        email = input("\n📧 Введите email: ").strip()
+        if "@" in email and "." in email.split("@")[-1]:
+            return email
+        print("❌ Некорректный формат email")
 
 
-def get_verification_code() -> str:
-    """Get verification code from user."""
+def saved_emails(api_url: str) -> List[str]:
+    return [
+        email
+        for email, entry in TokenManager.load_all().items()
+        if normalize_url(entry.get("api_url", "")) == normalize_url(api_url)
+    ]
+
+
+def choose_saved_email(api_url: str) -> Optional[str]:
+    emails = saved_emails(api_url)
+    if not emails:
+        print(f"\n❌ Нет сохранённых сессий для {api_url}")
+        return None
+
+    print()
+    for idx, email in enumerate(emails, 1):
+        print(f"{idx}. {email}")
     while True:
-        code = input("\n🔐 Введите код верификации из письма: ").strip()
-
-        if not code:
-            print("❌ Код не может быть пустым")
-            continue
-
-        if not code.isdigit() or len(code) < 4:
-            print("❌ Код должен содержать минимум 4 цифры")
-            continue
-
-        return code
+        choice = input("\nНомер (или 'q' для отмены): ").strip()
+        if choice.lower() == "q":
+            return None
+        if choice.isdigit() and 1 <= int(choice) <= len(emails):
+            return emails[int(choice) - 1]
+        print("❌ Некорректный выбор")
 
 
-async def register_new_user(api: GhoulQuizAPI, email: str) -> Optional[str]:
-    """Register new user and get JWT token."""
-    print_header("📝 Регистрация нового пользователя")
-
-    # Step 1: Send registration email
-    print(f"\n1️⃣  Отправляю код на {email}...")
+async def show_test_question(api: GhoulQuizAPI) -> bool:
+    """Request one question (and its answer for users) to check the token."""
     try:
-        response = await api.register(email=email)
-        print(f"✅ {response.message}")
-    except RateLimitError:
-        print("❌ Слишком много попыток. Попробуйте позже.")
-        return None
-    except ValidationError as e:
-        print(f"❌ Ошибка валидации: {e.message}")
-        if e.details:
-            print(f"   Детали: {e.details}")
-        return None
-    except Exception as e:
-        print(f"❌ Ошибка: {e}")
-        return None
-
-    # Step 2: Get verification code
-    print("\n2️⃣  Проверьте свою почту и введите код верификации")
-    code = get_verification_code()
-
-    # Step 3: Verify code and get JWT
-    print("\n3️⃣  Верифицирую код...")
-    try:
-        verify_response = await api.verify_code(email=email, code=code)
-        print("✅ Код верифицирован успешно!")
-        print("\n🎉 Вы зарегистрированы и авторизованы!")
-
-        return verify_response.token
-
-    except ValidationError as e:
-        print(f"❌ Ошибка валидации: {e.message}")
-        return None
-    except RateLimitError:
-        print("❌ Слишком много попыток верификации. Попробуйте позже.")
-        return None
-    except Exception as e:
-        print(f"❌ Ошибка верификации: {e}")
-        return None
-
-
-async def get_temporary_token_flow(api: GhoulQuizAPI) -> Optional[str]:
-    """Get temporary token for guest."""
-    print_header("🎫 Получение временного токена для гостя")
-
-    try:
-        print("\n⏳ Получаю временный токен...")
-        response = await api.get_temporary_token()
-
-        print("✅ Токен получен успешно!")
-        print(f"   Токен: {response.access_token}")
-        print(
-            f"   Действителен: {response.expires_in} секунд ({response.expires_in // 3600} часов)"
-        )
-
-        return response.access_token
-
-    except RateLimitError:
-        print("❌ Лимит запросов превышен. Попробуйте позже.")
-        return None
-    except Exception as e:
-        print(f"❌ Ошибка: {e}")
-        return None
-
-
-async def use_saved_token(api: GhoulQuizAPI, token: str, api_url: str):
-    """Use saved token to get and display a question."""
-    print_header("✅ Использование сохраненного токена")
-
-    api_instance = GhoulQuizAPI(base_url=api_url, api_key=token)
-
-    try:
-        print("\n⏳ Получаю вопрос с сохраненным токеном...")
-        question = await api_instance.get_random_question()
-
-        print("✅ Токен работает!")
-        print("\n📝 Вопрос:")
-        print(f"   ID: {question.id}")
-        print(f"   Вопрос: {question.question}")
-        print(f"   Варианты ответа: {', '.join(question.answer_options[:2])}...")
-
-        # Also get the answer
-        print("\n⏳ Получаю ответ...")
-        answer = await api_instance.get_answer(question_id=question.id)
-        print(f"✅ Ответ: {answer.answer}")
-
-        return True
-
-    except Exception as e:
-        print(f"❌ Ошибка при использовании токена: {e}")
-        return False
-
-    finally:
-        await api_instance.close()
-
-
-async def test_token(api: GhoulQuizAPI, token: str) -> bool:
-    """Test token by getting a question."""
-    print_header("🧪 Тестирование токена")
-
-    api.set_token(token)
-
-    try:
-        print("\n⏳ Получаю тестовый вопрос...")
         question = await api.get_random_question()
-
-        print("✅ Токен работает!")
-        print("\n📝 Тестовый вопрос:")
-        print(f"   ID: {question.id}")
-        print(f"   Вопрос: {question.question}")
-        print(f"   Варианты ответа: {', '.join(question.answer_options[:2])}...")
-
+        print("\n✅ Токен работает")
+        print(f"\n📝 Вопрос #{question.id}: {question.question}")
+        print(f"   Варианты: {', '.join(question.answer_options)}")
+        if api.auth_type == "user":
+            answer = await api.get_answer(question_id=question.id)
+            print(f"   Ответ: {answer.answer}")
         return True
-
-    except Exception as e:
-        print(f"❌ Ошибка при использовании токена: {e}")
+    except GhoulQuizError as e:
+        print(f"❌ {e}")
         return False
 
 
-async def show_saved_tokens():
-    """Show all saved tokens."""
-    print_header("💾 Сохраненные токены")
+async def login_flow(api: GhoulQuizAPI, email: Optional[str] = None) -> None:
+    print_header("📝 Вход / регистрация по email")
+    email = email or ask_email()
 
-    tokens = TokenManager.load_all_tokens()
-
-    if not tokens:
-        print("\n❌ Нет сохраненных токенов")
-        return
-
-    print(f"\n✅ Найдено {len(tokens)} токен(ов):\n")
-
-    for idx, (email, data) in enumerate(tokens.items(), 1):
-        api_url = data.get("api_url", "unknown")
-        token_preview = data.get("token", "")[:20] + "..."
-        print(f"{idx}. Email: {email}")
-        print(f"   API URL: {api_url}")
-        print(f"   Token: {token_preview}")
-        print()
-
-
-def delete_saved_token():
-    """Delete saved token."""
-    print_header("🗑️  Удаление сохраненного токена")
-
-    tokens = TokenManager.load_all_tokens()
-
-    if not tokens:
-        print("\n❌ Нет сохраненных токенов")
-        return
-
-    print("\n📧 Выберите токен для удаления:\n")
-
-    emails = list(tokens.keys())
-    for idx, email in enumerate(emails, 1):
-        print(f"{idx}. {email}")
-
-    while True:
-        choice = input("\nВведите номер (или 'q' для выхода): ").strip()
-
-        if choice.lower() == "q":
+    if api.load_saved_token(email):
+        use_saved = input(f"\n✅ Есть сохранённая сессия для {email}. Использовать её? (y/n): ")
+        if use_saved.strip().lower() == "y":
+            await show_test_question(api)
             return
-
-        try:
-            idx = int(choice) - 1
-            if 0 <= idx < len(emails):
-                email = emails[idx]
-                TokenManager.delete_token(email)
-                return
-        except ValueError:
-            pass
-
-        print("❌ Некорректный выбор")
-
-
-async def use_token_interactive(api: GhoulQuizAPI):
-    """Use a saved token interactively."""
-    print_header("🔑 Использование сохраненного токена")
-
-    tokens = TokenManager.load_all_tokens()
-
-    if not tokens:
-        print("\n❌ Нет сохраненных токенов")
-        return
-
-    print("\n📧 Выберите токен:\n")
-
-    emails = list(tokens.keys())
-    for idx, email in enumerate(emails, 1):
-        print(f"{idx}. {email}")
-
-    while True:
-        choice = input("\nВведите номер (или 'q' для выхода): ").strip()
-
-        if choice.lower() == "q":
-            return
-
-        try:
-            idx = int(choice) - 1
-            if 0 <= idx < len(emails):
-                email = emails[idx]
-                token = tokens[email]["token"]
-                api_url = tokens[email].get("api_url", "http://localhost:3000")
-
-                await use_saved_token(api, token, api_url)
-                return
-        except ValueError:
-            pass
-
-        print("❌ Некорректный выбор")
-
-
-def show_main_menu():
-    """Show main menu."""
-    print_header("🎯 Ghoul Quiz - Регистрация и использование токенов")
-
-    print(
-        """
-1. 📝 Зарегистрировать нового пользователя и получить JWT
-2. 🎫 Получить временный токен для гостя
-3. 🔑 Использовать сохраненный токен
-4. 💾 Просмотреть сохраненные токены
-5. 🗑️  Удалить сохраненный токен
-6. ❌ Выход
-    """
-    )
-
-
-async def main():
-    """Main async function."""
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Interactive Ghoul Quiz registration")
-    parser.add_argument(
-        "--api-url",
-        default="http://localhost:3000",
-        help="API URL (default: http://localhost:3000)",
-    )
-    parser.add_argument("--email", help="Email for auto-registration (skip interactive mode)")
-    args = parser.parse_args()
-
-    api = GhoulQuizAPI(base_url=args.api_url)
 
     try:
-        # Auto-registration mode
-        if args.email:
-            print_header("🚀 Режим автоматической регистрации")
-            print(f"\nEmail: {args.email}")
-            print(f"API URL: {args.api_url}")
+        await api.register_interactive(email, save_token=True)
+    except GhoulQuizError as e:
+        print(f"❌ {e}")
+        return
+    await show_test_question(api)
 
-            token = await register_new_user(api, args.email)
 
-            if token:
-                # Test token
-                if await test_token(api, token):
-                    # Ask to save
-                    save = input("\n💾 Сохранить токен? (y/n): ").strip().lower()
-                    if save == "y":
-                        TokenManager.save_token(args.email, token, args.api_url)
+async def guest_flow(api: GhoulQuizAPI) -> None:
+    print_header("🎫 Гостевой токен")
+    try:
+        guest = await api.get_temporary_token()
+    except GhoulQuizError as e:
+        print(f"❌ {e}")
+        return
+    print(f"\n✅ Токен: {guest.access_token}")
+    print(f"   Действует {guest.expires_in // 60} мин, 10 вопросов в час, без доступа к ответам")
+    await show_test_question(api)
+
+
+async def check_saved_flow(api: GhoulQuizAPI) -> None:
+    print_header("🔑 Проверка сохранённой сессии")
+    email = choose_saved_email(api.base_url)
+    if not email:
+        return
+    if not api.load_saved_token(email):
+        print("❌ Сессия устарела и удалена, войдите заново")
+        return
+    await show_test_question(api)
+
+
+def list_saved_flow() -> None:
+    print_header("💾 Сохранённые сессии")
+    print(f"\nФайл: {TokenManager.get_token_file()}")
+    sessions = TokenManager.load_all()
+    if not sessions:
+        print("\n❌ Нет сохранённых сессий")
+        return
+
+    for email, entry in sessions.items():
+        print(f"\n• {email}")
+        print(f"  Сервер:            {entry.get('api_url', 'неизвестно')}")
+        if entry.get("refresh_token"):
+            print(f"  Access-токен до:   {format_ts(entry.get('expires_at'))}")
+            print(f"  Refresh-токен до:  {format_ts(entry.get('refresh_expires_at'))}")
+        else:
+            print("  Старый формат без refresh-токена: нужен повторный вход")
+
+
+async def logout_flow(api: GhoulQuizAPI, everywhere: bool) -> None:
+    print_header("🚪 Выход на всех устройствах" if everywhere else "🚪 Выход из сессии")
+    email = choose_saved_email(api.base_url)
+    if not email or not api.load_saved_token(email):
+        return
+    try:
+        if everywhere:
+            await api.logout_all()
+        else:
+            await api.logout()
+        print(f"✅ Сессия {email} завершена и удалена")
+    except GhoulQuizError as e:
+        print(f"❌ {e}")
+        if TokenManager.delete(email):
+            print("   Локальная копия удалена")
+
+
+async def health_flow(api: GhoulQuizAPI) -> None:
+    try:
+        ok = await api.health()
+    except GhoulQuizError as e:
+        print(f"\n❌ Сервер недоступен: {e}")
+        return
+    print(f"\n{'✅ Сервер работает' if ok else '⚠️  Сервер отвечает, но БД или Redis недоступны'}")
+
+
+MENU = """
+1. 📝 Войти / зарегистрироваться по email
+2. 🎫 Получить гостевой токен
+3. 🔑 Проверить сохранённую сессию
+4. 💾 Показать сохранённые сессии
+5. 🚪 Выйти из сессии
+6. 🚫 Выйти на всех устройствах
+7. 🩺 Статус сервера
+0. ❌ Выход
+"""
+
+
+async def run(api_url: str, email: Optional[str], verify_ssl: bool) -> None:
+    async with GhoulQuizAPI(base_url=api_url, verify_ssl=verify_ssl) as api:
+        if email:
+            await login_flow(api, email)
             return
 
-        # Interactive mode
         while True:
-            show_main_menu()
-            choice = input("Выберите пункт (1-6): ").strip()
+            print_header(f"🎯 Ghoul Quiz: сессии ({api.base_url})")
+            print(MENU)
+            choice = input("Выберите пункт: ").strip()
+            api.clear()
 
             if choice == "1":
-                # Register new user
-                email = get_email()
-
-                # Check if already registered
-                saved_token = TokenManager.load_token(email)
-                if saved_token:
-                    use_saved = (
-                        input(
-                            f"\n✅ Найден сохраненный токен для {email}. Использовать его? (y/n): "
-                        )
-                        .strip()
-                        .lower()
-                    )
-                    if use_saved == "y":
-                        api_url = TokenManager.get_token_api_url(email) or args.api_url
-                        await use_saved_token(api, saved_token, api_url)
-                        continue
-
-                token = await register_new_user(api, email)
-
-                if token:
-                    # Test token
-                    if await test_token(api, token):
-                        # Ask to save
-                        save = input("\n💾 Сохранить токен? (y/n): ").strip().lower()
-                        if save == "y":
-                            TokenManager.save_token(email, token, args.api_url)
-
+                await login_flow(api)
             elif choice == "2":
-                # Get temporary token
-                token = await get_temporary_token_flow(api)
-
-                if token:
-                    if await test_token(api, token):
-                        print("\n💡 Совет: Используйте эту библиотеку в своем коде:")
-                        print(
-                            """
-    from ghoul_quiz import GhoulQuizAPI
-    import asyncio
-    
-    async def main():
-        api = GhoulQuizAPI()
-        question = await api.get_random_question()
-                        """
-                        )
-
+                await guest_flow(api)
             elif choice == "3":
-                # Use saved token
-                await use_token_interactive(api)
-
+                await check_saved_flow(api)
             elif choice == "4":
-                # Show saved tokens
-                await show_saved_tokens()
-
+                list_saved_flow()
             elif choice == "5":
-                # Delete token
-                delete_saved_token()
-
+                await logout_flow(api, everywhere=False)
             elif choice == "6":
-                # Exit
+                await logout_flow(api, everywhere=True)
+            elif choice == "7":
+                await health_flow(api)
+            elif choice == "0":
                 print("\n👋 До свидания!\n")
-                break
-
+                return
             else:
                 print("❌ Некорректный выбор")
 
-    finally:
-        await api.close()
+
+def main() -> None:
+    """Console entry point."""
+    parser = argparse.ArgumentParser(description="Ghoul Quiz: вход и управление сессиями")
+    parser.add_argument(
+        "--api-url",
+        default=DEFAULT_BASE_URL,
+        help=f"корень API, включая /api (по умолчанию {DEFAULT_BASE_URL})",
+    )
+    parser.add_argument("--email", help="сразу войти с этим email, без меню")
+    parser.add_argument(
+        "--insecure",
+        action="store_true",
+        help="не проверять SSL-сертификат (для локального сервера)",
+    )
+    args = parser.parse_args()
+
+    try:
+        asyncio.run(run(args.api_url, args.email, verify_ssl=not args.insecure))
+    except KeyboardInterrupt:
+        print("\n\n⚠️  Прервано пользователем")
+        sys.exit(130)
 
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        print("\n\n⚠️  Прервано пользователем")
-        sys.exit(0)
-    except Exception as e:
-        print(f"\n❌ Ошибка: {e}")
-        sys.exit(1)
+    main()
