@@ -15,7 +15,17 @@ from ghoul_quiz.errors import (
     UnauthorizedError,
     ValidationError,
 )
-from ghoul_quiz.models import Answer, GuestToken, Question, RegistrationResponse, TokenPair
+from ghoul_quiz.models import (
+    Answer,
+    GuestToken,
+    Question,
+    RegistrationResponse,
+    TokenPair,
+    TrueFalseAnswer,
+    TrueFalseQuestion,
+    WhoisAnswer,
+    WhoisQuestion,
+)
 from ghoul_quiz.storage import DEFAULT_BASE_URL, TokenManager, normalize_email
 
 
@@ -420,6 +430,8 @@ class GhoulQuizAPI:
 
         Text search ignores case, "ё/е", punctuation and whitespace.
 
+        The result carries ``answer_media`` (an illustration) when the question has one.
+
         Raises:
             AuthenticationRequiredError: Only a guest token is available
             NotFoundError: No such question
@@ -432,6 +444,54 @@ class GhoulQuizAPI:
         )
         data = await self._authorized_request("POST", "/quiz/answer", json=payload)
         return Answer.from_api(data)
+
+    # Optional quiz modes: the server answers 404 if a mode is not enabled.
+
+    async def get_random_whois(self) -> WhoisQuestion:
+        """Get a random "who/what is this?" question: a picture and answer options.
+
+        Works for users and guests. Same rate limit as :meth:`get_random_question`.
+
+        Raises:
+            NotFoundError: The server has no such questions
+        """
+        data = await self._authorized_request("GET", "/quiz/whois/random", allow_guest=True)
+        return WhoisQuestion.from_api(data)
+
+    async def get_whois_answer(self, question_id: int) -> WhoisAnswer:
+        """Get the correct answer to a "who/what is this?" question (registered users only).
+
+        Raises:
+            AuthenticationRequiredError: Only a guest token is available
+            NotFoundError: No such question
+        """
+        data = await self._authorized_request(
+            "POST", "/quiz/whois/answer", json={"id": question_id}
+        )
+        return WhoisAnswer.from_api(data)
+
+    async def get_random_true_false(self) -> TrueFalseQuestion:
+        """Get a random statement to judge true or false.
+
+        Works for users and guests. Same rate limit as :meth:`get_random_question`.
+
+        Raises:
+            NotFoundError: The server has no such questions
+        """
+        data = await self._authorized_request("GET", "/quiz/true-false/random", allow_guest=True)
+        return TrueFalseQuestion.from_api(data)
+
+    async def get_true_false_answer(self, question_id: int) -> TrueFalseAnswer:
+        """Find out whether a statement is true (registered users only).
+
+        Raises:
+            AuthenticationRequiredError: Only a guest token is available
+            NotFoundError: No such question
+        """
+        data = await self._authorized_request(
+            "POST", "/quiz/true-false/answer", json={"id": question_id}
+        )
+        return TrueFalseAnswer.from_api(data)
 
 
 def _ask_code() -> str:

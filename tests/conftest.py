@@ -18,8 +18,13 @@ QUESTION = {
     "answer_options": ["Канеки", "Тоука", "Хидэ", "Ризе"],
     "answer_group": "name",
 }
-ANSWER = {**QUESTION, "answer": "Канеки"}
+ANSWER = {**QUESTION, "answer": "Канеки", "answerMedia": None}
 del ANSWER["answer_options"]
+MEDIA = {"url": "https://example.com/kaneki.png", "kind": "image"}
+WHOIS = {"id": 12, "promptMedia": MEDIA, "answer_options": ["Канеки", "Тоука"]}
+WHOIS_ANSWER = {"id": 12, "answer": "Канеки"}
+TRUE_FALSE = {"id": 3, "statement": "Канеки — полугуль", "promptMedia": None}
+TRUE_FALSE_ANSWER = {"id": 3, "correct": True}
 
 
 class FakeAPI:
@@ -147,6 +152,26 @@ class FakeAPI:
             raise error(404, "Вопрос не найден")
         return web.json_response(ANSWER)
 
+    async def whois_random(self, request):
+        self.auth(request, allow_guest=True)
+        return web.json_response(WHOIS)
+
+    async def whois_answer(self, request):
+        self.auth(request, allow_guest=False)
+        if (await request.json()).get("id") != WHOIS["id"]:
+            raise error(404, "Вопрос не найден")
+        return web.json_response(WHOIS_ANSWER)
+
+    async def true_false_random(self, request):
+        self.auth(request, allow_guest=True)
+        return web.json_response(TRUE_FALSE)
+
+    async def true_false_answer(self, request):
+        self.auth(request, allow_guest=False)
+        if (await request.json()).get("id") != TRUE_FALSE["id"]:
+            raise error(404, "Вопрос не найден")
+        return web.json_response(TRUE_FALSE_ANSWER)
+
     async def bad_gateway(self, request):
         return web.Response(status=502, text="<html>Bad Gateway</html>", content_type="text/html")
 
@@ -161,6 +186,10 @@ class FakeAPI:
         app.router.add_post("/api/auth/logout-all", self.logout_all)
         app.router.add_get("/api/quiz/random", self.random)
         app.router.add_post("/api/quiz/answer", self.answer)
+        app.router.add_get("/api/quiz/whois/random", self.whois_random)
+        app.router.add_post("/api/quiz/whois/answer", self.whois_answer)
+        app.router.add_get("/api/quiz/true-false/random", self.true_false_random)
+        app.router.add_post("/api/quiz/true-false/answer", self.true_false_answer)
         app.router.add_get("/api/boom", self.bad_gateway)
         return app
 

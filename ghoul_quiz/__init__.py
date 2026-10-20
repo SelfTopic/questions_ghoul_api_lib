@@ -17,17 +17,22 @@ from ghoul_quiz.models import (
     Answer,
     AnswerResponse,
     GuestToken,
+    Media,
     Question,
     QuestionOption,
     RegistrationResponse,
     TemporaryTokenResponse,
     TokenPair,
+    TrueFalseAnswer,
+    TrueFalseQuestion,
     VerifyCodeResponse,
+    WhoisAnswer,
+    WhoisQuestion,
 )
 from ghoul_quiz.session import GhoulQuizAPI
 from ghoul_quiz.storage import DEFAULT_BASE_URL, TokenManager
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = [
     "DEFAULT_BASE_URL",
@@ -51,6 +56,11 @@ __all__ = [
     "RegistrationResponse",
     "Question",
     "Answer",
+    "Media",
+    "WhoisQuestion",
+    "WhoisAnswer",
+    "TrueFalseQuestion",
+    "TrueFalseAnswer",
     # Version 0.1 names
     "TemporaryTokenResponse",
     "VerifyCodeResponse",

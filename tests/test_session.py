@@ -5,7 +5,7 @@ import stat
 import time
 
 import pytest
-from conftest import CODE, QUESTION
+from conftest import CODE, MEDIA, QUESTION, TRUE_FALSE, WHOIS
 
 from ghoul_quiz import (
     APIError,
@@ -247,3 +247,43 @@ async def test_health(api, fake):
     assert await api.health() is True
     fake.healthy = False
     assert await api.health() is False
+
+
+async def test_answer_media_is_none_when_absent(api):
+    await login(api)
+    answer = await api.get_answer(question_id=QUESTION["id"])
+    assert answer.answer_media is None
+
+
+async def test_whois(api, fake):
+    await api.get_temporary_token()
+    question = await api.get_random_whois()
+    assert question.id == WHOIS["id"]
+    assert question.prompt_media.url == MEDIA["url"]
+    assert question.prompt_media.kind == "image"
+    assert question.answer_options == WHOIS["answer_options"]
+
+    with pytest.raises(AuthenticationRequiredError):
+        await api.get_whois_answer(question.id)
+
+    await login(api)
+    answer = await api.get_whois_answer(question.id)
+    assert answer.answer == "Канеки"
+    with pytest.raises(NotFoundError):
+        await api.get_whois_answer(999)
+
+
+async def test_true_false(api):
+    await api.get_temporary_token()
+    question = await api.get_random_true_false()
+    assert question.id == TRUE_FALSE["id"]
+    assert question.statement == TRUE_FALSE["statement"]
+    assert question.prompt_media is None
+
+    with pytest.raises(AuthenticationRequiredError):
+        await api.get_true_false_answer(question.id)
+
+    await login(api)
+    assert (await api.get_true_false_answer(question.id)).correct is True
+    with pytest.raises(NotFoundError):
+        await api.get_true_false_answer(999)

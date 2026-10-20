@@ -10,7 +10,7 @@ from setuptools import find_packages, setup
 
 setup(
     name="ghoul-quiz-lib",
-    version="0.2.0",
+    version="0.3.0",
     description="Async Python library for Questions Ghoul API",
     long_description=open("LIBRARY_README.md").read(),
     long_description_content_type="text/markdown",

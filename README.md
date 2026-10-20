@@ -115,8 +115,32 @@ await api.logout_all()   # завершить все сессии пользов
 | `logout_all()` | `POST /auth/logout-all` | пользователь |
 | `get_random_question()` → `Question` | `GET /quiz/random` | гость, пользователь |
 | `get_answer(question_id=... \| question_text=...)` → `Answer` | `POST /quiz/answer` | пользователь |
+| `get_random_whois()` → `WhoisQuestion` | `GET /quiz/whois/random` | гость, пользователь |
+| `get_whois_answer(question_id)` → `WhoisAnswer` | `POST /quiz/whois/answer` | пользователь |
+| `get_random_true_false()` → `TrueFalseQuestion` | `GET /quiz/true-false/random` | гость, пользователь |
+| `get_true_false_answer(question_id)` → `TrueFalseAnswer` | `POST /quiz/true-false/answer` | пользователь |
 
 При поиске по `question_text` не учитываются регистр, «ё/е», пунктуация и пробелы.
+
+### Режимы «Кто это?» и «Верно или нет?»
+
+Два дополнительных режима викторины. На сервере они необязательны: если режим не включён, методы выбрасывают `NotFoundError`.
+
+```python
+# «Кто это?»: вместо текста вопроса картинка (или видео)
+q = await api.get_random_whois()
+print(q.prompt_media.url, q.prompt_media.kind, q.answer_options)
+print((await api.get_whois_answer(q.id)).answer)
+
+# «Верно или нет?»: утверждение, иногда с картинкой
+q = await api.get_random_true_false()
+print(q.statement, q.prompt_media)          # prompt_media может быть None
+print((await api.get_true_false_answer(q.id)).correct)
+```
+
+Вопросы доступны гостям, ответы только зарегистрированным пользователям. Искать по тексту здесь нельзя, только по `id`.
+
+Картинки и видео описывает модель `Media` (`url`, `kind`: `"image"` или `"video"`). К обычному ответу тоже может прилагаться иллюстрация: `Answer.answer_media` равен `None`, если её нет.
 
 Состояние клиента: `api.auth_type` (`"user"`, `"guest"` или `None`), `api.tokens`, `api.guest_token`, `api.email`. Токен, полученный в другом месте, можно передать через `set_tokens(TokenPair(...))` или `set_token(str)`. Строка в формате UUID считается гостевым токеном, любая другая строка считается access-токеном без refresh.
 
@@ -225,13 +249,21 @@ pytest
 ghoul_quiz/
 ├── session.py    GhoulQuizAPI: методы API и обновление токенов
 ├── client.py     GhoulAPIClient: HTTP-транспорт, ответы с ошибками превращаются в исключения
-├── models.py     GuestToken, TokenPair, Question, Answer
+├── models.py     GuestToken, TokenPair, Media, Question, Answer, Whois*, TrueFalse*
 ├── errors.py     исключения
 ├── storage.py    TokenManager: файл сессий
 └── register.py   консольная утилита ghoul-quiz-register
 examples/         игры и примеры
 tests/            тесты с фейковым сервером
 ```
+
+## 🆕 Что нового в 0.3.0
+
+- Режим «Кто это?»: `get_random_whois()` и `get_whois_answer()`.
+- Режим «Верно или нет?»: `get_random_true_false()` и `get_true_false_answer()`.
+- Новые модели `Media`, `WhoisQuestion`, `WhoisAnswer`, `TrueFalseQuestion`, `TrueFalseAnswer`.
+- `Answer.answer_media`: иллюстрация к правильному ответу или `None`.
+- Существующий код менять не нужно: изменения обратно совместимы.
 
 ## 🔄 Переход с 0.1
 

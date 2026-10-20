@@ -74,6 +74,21 @@ class RegistrationResponse:
 
 
 @dataclass
+class Media:
+    """An image or video attached to a question or an answer."""
+
+    url: str
+    kind: str  # "image" or "video"
+
+    @classmethod
+    def from_api(cls, data: Optional[Dict[str, Any]]) -> Optional["Media"]:
+        """None stays None: the API sends ``null`` when there is no media."""
+        if not data:
+            return None
+        return cls(url=data["url"], kind=data["kind"])
+
+
+@dataclass
 class Question:
     """A random question with answer options (the answer itself is not included)."""
 
@@ -100,6 +115,7 @@ class Answer:
     question: str
     answer: str
     answer_group: str
+    answer_media: Optional[Media] = None
 
     @classmethod
     def from_api(cls, data: Dict[str, Any]) -> "Answer":
@@ -108,7 +124,64 @@ class Answer:
             question=data["question"],
             answer=data["answer"],
             answer_group=data["answer_group"],
+            answer_media=Media.from_api(data.get("answerMedia")),
         )
+
+
+@dataclass
+class WhoisQuestion:
+    """Who/what is this? A picture or video instead of a question text."""
+
+    id: int
+    prompt_media: Media
+    answer_options: List[str]
+
+    @classmethod
+    def from_api(cls, data: Dict[str, Any]) -> "WhoisQuestion":
+        media = Media.from_api(data["promptMedia"])
+        assert media is not None
+        return cls(id=data["id"], prompt_media=media, answer_options=data["answer_options"])
+
+
+@dataclass
+class WhoisAnswer:
+    """The correct answer to a "who/what is this?" question (registered users only)."""
+
+    id: int
+    answer: str
+
+    @classmethod
+    def from_api(cls, data: Dict[str, Any]) -> "WhoisAnswer":
+        return cls(id=data["id"], answer=data["answer"])
+
+
+@dataclass
+class TrueFalseQuestion:
+    """A statement to judge true or false, optionally with a picture."""
+
+    id: int
+    statement: str
+    prompt_media: Optional[Media] = None
+
+    @classmethod
+    def from_api(cls, data: Dict[str, Any]) -> "TrueFalseQuestion":
+        return cls(
+            id=data["id"],
+            statement=data["statement"],
+            prompt_media=Media.from_api(data.get("promptMedia")),
+        )
+
+
+@dataclass
+class TrueFalseAnswer:
+    """Whether the statement is true (registered users only)."""
+
+    id: int
+    correct: bool
+
+    @classmethod
+    def from_api(cls, data: Dict[str, Any]) -> "TrueFalseAnswer":
+        return cls(id=data["id"], correct=data["correct"])
 
 
 # Names used by version 0.1
