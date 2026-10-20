@@ -287,3 +287,19 @@ async def test_true_false(api):
     assert (await api.get_true_false_answer(question.id)).correct is True
     with pytest.raises(NotFoundError):
         await api.get_true_false_answer(999)
+
+
+async def test_answer_group_is_optional(api, fake, monkeypatch):
+    import conftest
+
+    without_group = {k: v for k, v in QUESTION.items() if k != "answer_group"}
+    monkeypatch.setattr(conftest, "QUESTION", without_group)
+    monkeypatch.setattr(
+        conftest, "ANSWER", {"id": 7, "question": "?", "answer": "Канеки", "answerMedia": None}
+    )
+    await api.get_temporary_token()
+    question = await api.get_random_question()
+    assert question.answer_group is None
+
+    await login(api)
+    assert (await api.get_answer(question_id=7)).answer_group is None

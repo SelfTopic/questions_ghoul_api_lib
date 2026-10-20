@@ -31,7 +31,7 @@ async def main():
                 await api.register_interactive(email)
 
             answer = await api.get_answer(question_id=question.id)
-            print(f"✓ Answer: {answer.answer} ({answer.answer_group})")
+            print(f"✓ Answer: {answer.answer}")
 
         except GhoulQuizError as e:
             print(f"✗ Error: {e}")

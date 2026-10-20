@@ -257,7 +257,13 @@ examples/         игры и примеры
 tests/            тесты с фейковым сервером
 ```
 
-## 🆕 Что нового в 0.3.0
+## 🆕 Что нового
+
+### 0.3.1
+
+- Исправлено падение `KeyError: 'answer_group'`: поле необязательное, у вопросов без него `Question.answer_group` и `Answer.answer_group` теперь `None`.
+
+### 0.3.0
 
 - Режим «Кто это?»: `get_random_whois()` и `get_whois_answer()`.
 - Режим «Верно или нет?»: `get_random_true_false()` и `get_true_false_answer()`.

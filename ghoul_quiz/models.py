@@ -95,7 +95,7 @@ class Question:
     id: int
     question: str
     answer_options: List[str]
-    answer_group: str
+    answer_group: Optional[str] = None
 
     @classmethod
     def from_api(cls, data: Dict[str, Any]) -> "Question":
@@ -103,7 +103,7 @@ class Question:
             id=data["id"],
             question=data["question"],
             answer_options=data["answer_options"],
-            answer_group=data["answer_group"],
+            answer_group=data.get("answer_group"),
         )
 
 
@@ -114,7 +114,7 @@ class Answer:
     id: int
     question: str
     answer: str
-    answer_group: str
+    answer_group: Optional[str] = None
     answer_media: Optional[Media] = None
 
     @classmethod
@@ -123,7 +123,7 @@ class Answer:
             id=data["id"],
             question=data["question"],
             answer=data["answer"],
-            answer_group=data["answer_group"],
+            answer_group=data.get("answer_group"),
             answer_media=Media.from_api(data.get("answerMedia")),
         )
 
